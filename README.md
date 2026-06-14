@@ -25,8 +25,8 @@ python3 -m http.server 3456
 
 Then open:
 
-- Landing page → http://localhost:3456/index.html
-- Live dashboard → http://localhost:3456/dashboard.html
+- Landing page → http://127.0.0.1:3000/index.html?serverWindowId=cd333eb8-5f26-4867-924b-9ac926b578f0
+- Live dashboard → http://127.0.0.1:3000/dashboard.html?serverWindowId=78455328-8ab2-4b15-afc6-2e2f3904abab
 
 The dashboard loads React, Tailwind, and Babel from CDNs, so it runs straight from the file.
 For production you'd precompile (e.g. Vite + Tailwind CLI) rather than using the CDN builds.
