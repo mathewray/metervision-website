@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeterVision — AI-Powered Utility Meter Reading</title>
+  <meta name="description" content="An end-to-end computer vision pipeline that reads utility meter displays automatically — built for modern utility infrastructure.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<div class="grid-bg"></div>
+
+<!-- ── Navbar ────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <span class="nav-brand">
+      <span class="nav-logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+      </span>
+      MeterVision
+    </span>
+
+    <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#use-case">For Utilities</a></li>
+      <li><a href="dashboard.html">Live Demo</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#installation">Installation</a></li>
+      <li><a href="https://github.com/mathewray/Meter-reading-public.git" class="nav-cta">View on GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main">
+
+<!-- ── Hero ──────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-grid">
+
+      <div class="hero-copy">
+        <div class="hero-eyebrow">
+          <span class="dot"></span>
+          Computer Vision · PyTorch · Utility Infrastructure
+        </div>
+
+        <h1 class="hero-title">
+          Automated<br>
+          <span class="accent">Meter Reading</span><br>
+          Powered by AI
+        </h1>
+
+        <p class="hero-sub">
+          An end-to-end vision pipeline that locates utility meters in any photo, detects every digit on the display, and returns the reading — cutting manual transcription out of the meter-reading loop.
+        </p>
+
+        <div class="hero-actions">
+          <a href="https://github.com/mathewray/Meter-reading-public.git" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.137 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+            View on GitHub
+          </a>
+          <a href="dashboard.html" class="btn btn-secondary">Open live dashboard →</a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat">
+            <div class="stat-num">3</div>
+            <div class="stat-label">Model stages</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">0–9</div>
+            <div class="stat-label">Digit classes</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">2</div>
+            <div class="stat-label">Meter types</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">7-seg</div>
+            <div class="stat-label">Segment-aware</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="before-after">
+          <div class="img-card">
+            <img src="example_image2.png" alt="Raw utility meter photo before processing">
+            <span class="img-tag">Raw Photo</span>
+          </div>
+          <div class="img-card">
+            <img src="meter_reading_debug.png" alt="Same meter with detected digits outlined and the reading 51706 extracted">
+            <span class="img-tag detected">51706 Detected</span>
+          </div>
+        </div>
+        <p class="hero-caption">Input photo → detected digits → extracted reading</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Utility Banner ─────────────────────────────────────── -->
+<div id="utility-banner">
+  <div class="container">
+    <div class="banner-inner">
+      <div class="banner-copy">
+        <h2>Purpose-built for utility-scale meter reading</h2>
+        <p>Manitoba Hydro serves over 527,000 electric customers and 263,000 gas customers across Manitoba. MeterVision turns a single field photo into a structured reading — reducing transcription work, re-read trips, and manual data entry.</p>
+      </div>
+      <div class="banner-metrics">
+        <div class="metric">
+          <div class="metric-val">790K+</div>
+          <div class="metric-label">MB&nbsp;Hydro customer base</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val">2</div>
+          <div class="metric-label">Meter types targeted</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val">1&nbsp;photo</div>
+          <div class="metric-label">Per reading</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pipeline ───────────────────────────────────────────── -->
+<section id="pipeline">
+  <div class="container">
+    <p class="section-label">How it works</p>
+    <h2 class="section-title">Three-stage detection pipeline</h2>
+    <p class="section-sub">Each stage is a separately trained model — modular, testable, and independently upgradeable without touching the rest of the system.</p>
+
+    <div class="pipeline-flow">
+
+      <div class="pipeline-step">
+        <div class="step-badge">1</div>
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+        </div>
+        <h3 class="step-title">Meter Localization</h3>
+        <p class="step-desc">A fine-tuned Faster R-CNN scans the full photo and draws a tight bounding box around the meter display — handling varied distances, angles, and lighting conditions in the field.</p>
+        <span class="step-tag">Faster R-CNN · ResNet-50 FPN</span>
+      </div>
+
+      <div class="pipeline-arrow" aria-hidden="true">→</div>
+
+      <div class="pipeline-step">
+        <div class="step-badge">2</div>
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+        </div>
+        <h3 class="step-title">Digit Localization</h3>
+        <p class="step-desc">The cropped screen is passed to a second Faster R-CNN that detects each digit's bounding box. A custom X-axis NMS removes duplicate detections before classification.</p>
+        <span class="step-tag">Faster R-CNN · X-axis NMS</span>
+      </div>
+
+      <div class="pipeline-arrow" aria-hidden="true">→</div>
+
+      <div class="pipeline-step">
+        <div class="step-badge">3</div>
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></svg>
+        </div>
+        <h3 class="step-title">Digit Classification</h3>
+        <p class="step-desc">Each digit crop is classified by a lightweight CNN with a 7-segment awareness head. Digit and segment probabilities are scored jointly against a truth table for maximum accuracy.</p>
+        <span class="step-tag">SmallCNN · Segment-aware</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Use Case ────────────────────────────────────────────── -->
+<section id="use-case">
+  <div class="container">
+    <div class="use-case-grid">
+
+      <div class="use-case-cards">
+        <div class="uc-card">
+          <div class="uc-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+          </div>
+          <h4>Electric Meters</h4>
+          <p>Reads 5–6 digit LCD displays on residential and commercial electric meters with high confidence, even in outdoor glare.</p>
+        </div>
+        <div class="uc-card">
+          <div class="uc-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          </div>
+          <h4>Gas Meters</h4>
+          <p>Analog dial detection is actively in development, targeting the full range of natural gas meters in the Manitoba Hydro fleet.</p>
+        </div>
+        <div class="uc-card">
+          <div class="uc-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+          </div>
+          <h4>Mobile-Ready</h4>
+          <p>Works on photos taken by field technicians with standard smartphones — no specialized imaging equipment required.</p>
+        </div>
+        <div class="uc-card">
+          <div class="uc-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          </div>
+          <h4>Structured Output</h4>
+          <p>Returns readings as clean strings that integrate directly into billing systems, AMI platforms, or data pipelines.</p>
+        </div>
+        <div class="uc-card">
+          <div class="uc-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+          </div>
+          <h4>On-Device or Cloud</h4>
+          <p>Runs on CPU, Apple Silicon (MPS), or CUDA GPUs — deployable on edge hardware at substations or centrally in the cloud.</p>
+        </div>
+        <div class="uc-card">
+          <div class="uc-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <h4>Keeps Data Local</h4>
+          <p>Fully self-contained inference — meter images and readings never leave your network unless you choose to route them there.</p>
+        </div>
+      </div>
+
+      <div class="use-case-copy">
+        <p class="section-label">For Manitoba Hydro</p>
+        <h2>Replace manual reads with a single photo</h2>
+        <p>Field technicians already photograph meters during service calls. MeterVision turns those photos into structured readings automatically — eliminating transcription errors, reducing re-read trips, and creating an auditable image archive tied to every data point.</p>
+        <p>The modular pipeline is designed to be retrained on new meter types as Manitoba Hydro's fleet evolves — without rebuilding the whole system.</p>
+
+        <div class="uc-highlight">
+          <p>Manitoba Hydro's <strong>Power Smart</strong> program and <strong>smart grid investments</strong> show a clear commitment to data-driven infrastructure. MeterVision fits directly into that modernization roadmap — adding computer vision to the meter-reading workflow with no hardware changes required on the meter itself.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Demo ───────────────────────────────────────────────── -->
+<section id="demo">
+  <div class="container">
+    <p class="section-label">Results</p>
+    <h2 class="section-title">Live inference examples</h2>
+    <p class="section-sub">Photos taken in real-world conditions — the pipeline handles varying brightness, angle, and meter face design.</p>
+
+    <a href="dashboard.html" class="btn btn-primary demo-cta">Try the interactive dashboard →</a>
+
+    <div class="demo-grid">
+
+      <div>
+        <div class="demo-img-wrap">
+          <img src="example_image1.png" alt="Electric meter LCD with the detected reading outlined in the AI overlay">
+        </div>
+        <div class="reading-pill">
+          <div>
+            <div class="reading-value">5<span class="reading-value">1</span>4<span class="reading-value">4</span>4</div>
+            <div class="reading-label">Meter reading</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-details">
+        <h3>What the pipeline produces</h3>
+        <ul class="check-list">
+          <li>
+            <span class="ck" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Locates the meter face and screen region — any angle, any distance</span>
+          </li>
+          <li>
+            <span class="ck" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Detects every individual digit on the 7-segment LCD display</span>
+          </li>
+          <li>
+            <span class="ck" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Suppresses duplicate detections with a custom X-axis overlap threshold</span>
+          </li>
+          <li>
+            <span class="ck" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Scores digit predictions jointly with a 7-segment pattern truth table</span>
+          </li>
+          <li>
+            <span class="ck" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Orders digits left-to-right and returns the reading as a clean string</span>
+          </li>
+          <li>
+            <span class="ck" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span>Saves a debug image with labelled bounding boxes for audit and review</span>
+          </li>
+        </ul>
+
+        <div class="gas-card">
+          <div class="gas-card-label">Natural Gas Meters · In Development</div>
+          <h4>Expanding to the full Manitoba Hydro fleet</h4>
+          <p>Analog dial detection for gas meters is actively being built. The localization model already identifies gas meter faces — dial angle reading is the current focus.</p>
+          <img src="gasmeter.png" alt="Gas meter with detection bounding boxes around each dial">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Architecture ───────────────────────────────────────── -->
+<section id="architecture">
+  <div class="container">
+    <p class="section-label">Technical Details</p>
+    <h2 class="section-title">Architecture overview</h2>
+    <p class="section-sub">Two Faster R-CNN detectors and a custom lightweight CNN, all in PyTorch — designed to be retrained as the meter fleet changes.</p>
+
+    <div class="arch-grid">
+
+      <div class="arch-card">
+        <div class="arch-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+        </div>
+        <h3>Meter Localizer</h3>
+        <p>Fine-tuned Faster R-CNN with ResNet-50 FPN. Detects <code>digital_meter</code>, <code>digital_meter_screen</code>, and <code>gas_meter</code>. Highest-confidence screen box is passed downstream.</p>
+        <div class="tag-row">
+          <span class="tag">Faster R-CNN</span>
+          <span class="tag">ResNet-50 FPN</span>
+          <span class="tag">Score ≥ 0.5</span>
+        </div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <h3>Digit Localizer</h3>
+        <p>Second Faster R-CNN fine-tuned on cropped meter screens. Detects all digit bounding boxes as a single class. Custom X-axis NMS (threshold 0.5) removes overlaps before classification.</p>
+        <div class="tag-row">
+          <span class="tag">Faster R-CNN</span>
+          <span class="tag">X-NMS @ 0.5</span>
+          <span class="tag">Score ≥ 0.4</span>
+        </div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 9.5-3.48 1.59a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83L17.92 9.5"/><path d="m6.08 14.5-3.48 1.59a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.47-1.58"/></svg>
+        </div>
+        <h3>SmallDigitCNN</h3>
+        <p>Lightweight 3-layer CNN on grayscale, auto-contrast crops. Dual output heads: 10-class digit classification and 7-segment binary prediction. Scored jointly via truth table.</p>
+        <div class="tag-row">
+          <span class="tag">3-layer CNN</span>
+          <span class="tag">Dual-head</span>
+          <span class="tag">7-seg aware</span>
+        </div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
+        </div>
+        <h3>Segment Scoring</h3>
+        <p>Digit softmax probability is multiplied with sigmoid probabilities for each expected segment being ON or OFF. This physics-informed prior penalises impossible digit shapes — e.g., a "1" with all segments lit.</p>
+        <div class="tag-row">
+          <span class="tag">Truth table</span>
+          <span class="tag">Softmax × Sigmoid</span>
+          <span class="tag">Digits 0–9</span>
+        </div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+        </div>
+        <h3>Dataset Pipeline</h3>
+        <p>COCO-format annotations from Label Studio feed a series of scripts that generate three separate training datasets from the same source images — one per model stage.</p>
+        <div class="tag-row">
+          <span class="tag">COCO format</span>
+          <span class="tag">Label Studio</span>
+          <span class="tag">3-stage prep</span>
+        </div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
+        </div>
+        <h3>Hardware Support</h3>
+        <p>Inference automatically selects CUDA on Windows (NVIDIA GPU), Metal MPS on Apple Silicon, or CPU on all other systems — deploy anywhere without code changes.</p>
+        <div class="tag-row">
+          <span class="tag">CUDA</span>
+          <span class="tag">Apple MPS</span>
+          <span class="tag">CPU fallback</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Installation ───────────────────────────────────────── -->
+<section id="installation">
+  <div class="container">
+    <p class="section-label">Get started</p>
+    <h2 class="section-title">Installation</h2>
+    <p class="section-sub">Install dependencies for your platform, download the pre-trained weights, and run inference on any meter photo.</p>
+
+    <div class="install-tabs" role="tablist" aria-label="Installation instructions">
+      <button class="tab-btn active" role="tab" id="tab-btn-windows" aria-selected="true" aria-controls="tab-windows" onclick="switchTab(event,'windows')">Windows (CUDA)</button>
+      <button class="tab-btn" role="tab" id="tab-btn-macos" aria-selected="false" aria-controls="tab-macos" tabindex="-1" onclick="switchTab(event,'macos')">macOS</button>
+      <button class="tab-btn" role="tab" id="tab-btn-inference" aria-selected="false" aria-controls="tab-inference" tabindex="-1" onclick="switchTab(event,'inference')">Running Inference</button>
+    </div>
+
+    <div id="tab-windows" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-windows" tabindex="0">
+      <pre><code><span class="cmt"># Upgrade pip</span>
+<span class="fn">py</span> -m pip install --upgrade pip setuptools wheel
+
+<span class="cmt"># PyTorch with CUDA 11.8 (NVIDIA GPU)</span>
+<span class="fn">py</span> -m pip install torch torchvision <span class="str">--index-url https://download.pytorch.org/whl/cu118</span>
+
+<span class="cmt"># Remaining dependencies</span>
+<span class="fn">py</span> -m pip install <span class="str">numpy matplotlib pillow opencv-python pycocotools label-studio</span>
+</code></pre>
+      <p class="install-note">Requires an NVIDIA GPU with compatible drivers. CUDA 11.8 is bundled with the PyTorch wheel — no separate CUDA install needed.</p>
+    </div>
+
+    <div id="tab-macos" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-macos" tabindex="0" hidden>
+      <pre><code><span class="cmt"># Upgrade pip</span>
+<span class="fn">python3</span> -m pip install --upgrade pip setuptools wheel
+
+<span class="cmt"># PyTorch (auto-enables MPS on Apple Silicon)</span>
+<span class="fn">python3</span> -m pip install torch torchvision
+
+<span class="cmt"># Remaining dependencies</span>
+<span class="fn">python3</span> -m pip install <span class="str">numpy matplotlib pillow opencv-python pycocotools label-studio</span>
+</code></pre>
+      <p class="install-note">On Apple Silicon (M1/M2/M3) PyTorch automatically uses Metal Performance Shaders. On Intel Macs, CPU inference is used.</p>
+    </div>
+
+    <div id="tab-inference" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-inference" tabindex="0" hidden>
+      <p style="font-size:14px; color:var(--muted-hi); margin-bottom:18px;">Download the pre-trained model weights, place them alongside the script, then:</p>
+      <pre><code><span class="kw">from</span> meter_vision_pipeline_v3 <span class="kw">import</span> MeterVisionPipelineV3
+
+pipeline = MeterVisionPipelineV3(
+    meter_model_pth=<span class="str">"meter_localizer_fasterrcnn_state_dict.pth"</span>,
+    meter_label_map_json=<span class="str">"meter_localizer_label_map.json"</span>,
+    digit_localizer_pth=<span class="str">"digit_localizer_fasterrcnn_state_dict.pth"</span>,
+    digit_localizer_label_map_json=<span class="str">"digit_localizer_label_map.json"</span>,
+    digit_classifier_pth=<span class="str">"digit_classifier_smallcnn_segments.pth"</span>,
+    digit_classifier_meta_json=<span class="str">"digit_classifier_smallcnn_segments_meta.json"</span>,
+    debug=<span class="kw">True</span>,
+)
+
+reading = pipeline.run(<span class="str">"meter_photo.png"</span>)
+<span class="fn">print</span>(<span class="str">f"Reading: {reading}"</span>)
+</code></pre>
+      <p class="install-note">Set <code>debug=True</code> to display intermediate detection steps and save <code>meter_reading_debug.png</code> with labelled bounding boxes.</p>
+    </div>
+
+    <div class="download-card">
+      <div class="download-card-icon" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+      </div>
+      <div class="download-card-text">
+        <h3>Pre-trained model weights</h3>
+        <p>Download <code>pipeline_models_v4.7z</code> — all three model checkpoints needed for inference on digital meters.</p>
+      </div>
+      <a href="https://1drv.ms/u/c/ff40561dcb2cfa68/IQA9EesRbLTDR4uGmhpNwEnHAaCKtN0sr62oiNIYqjWYg6c?e=FwG7zN" class="btn btn-primary">Download Models →</a>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────── -->
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="nav-logo" style="width:28px;height:28px;" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+      </span>
+      MeterVision
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/raymathew/Meter-reading-public">GitHub</a></li>
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#use-case">For Utilities</a></li>
+      <li><a href="dashboard.html">Live Demo</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#installation">Installation</a></li>
+    </ul>
+    <span class="footer-copy">Built with PyTorch &amp; torchvision</span>
+  </div>
+</footer>
+
+<script>
+  /* Mobile nav toggle */
+  const navToggle = document.querySelector('.nav-toggle');
+  const navMenu = document.getElementById('nav-links');
+  navToggle.addEventListener('click', () => {
+    const open = navMenu.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', open);
+  });
+  navMenu.querySelectorAll('a').forEach(a =>
+    a.addEventListener('click', () => {
+      navMenu.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    })
+  );
+
+  /* Installation tabs (accessible) */
+  const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
+  function switchTab(e, id) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+      b.setAttribute('tabindex', '-1');
+    });
+    document.querySelectorAll('.tab-content').forEach(c => {
+      c.classList.remove('active');
+      c.hidden = true;
+    });
+    const btn = e.currentTarget;
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    btn.setAttribute('tabindex', '0');
+    const panel = document.getElementById('tab-' + id);
+    panel.classList.add('active');
+    panel.hidden = false;
+  }
+  document.querySelector('.install-tabs').addEventListener('keydown', (e) => {
+    const i = tabBtns.indexOf(document.activeElement);
+    if (i === -1) return;
+    let n = null;
+    if (e.key === 'ArrowRight') n = (i + 1) % tabBtns.length;
+    if (e.key === 'ArrowLeft')  n = (i - 1 + tabBtns.length) % tabBtns.length;
+    if (e.key === 'Home')       n = 0;
+    if (e.key === 'End')        n = tabBtns.length - 1;
+    if (n !== null) {
+      e.preventDefault();
+      tabBtns[n].focus();
+      tabBtns[n].click();
+    }
+  });
+</script>
+
+</body>
+</html>

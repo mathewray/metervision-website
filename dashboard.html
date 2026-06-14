@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeterVision — Real-Time Meter Reading Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            navy: {
+              950: '#060b16',
+              900: '#0a1120',
+              850: '#0d1526',
+              800: '#111c33',
+              700: '#16243f',
+              600: '#1d2f50',
+            },
+            teal: { DEFAULT: '#2dd4bf', bright: '#14e6cb' },
+            cyan: { DEFAULT: '#22d3ee', soft: '#67e8f9' },
+            ink: { 100: '#e6f0f5', 300: '#9fb3c8', 400: '#7186a0', 500: '#566b86' },
+          },
+          transitionDuration: { 250: '250ms' },
+        },
+      },
+    };
+  </script>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background: #060b16; }
+
+    /* Subtle grid + glow backdrop */
+    .app-bg {
+      background-image:
+        radial-gradient(ellipse 70% 50% at 50% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
+        linear-gradient(rgba(45, 212, 191, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(45, 212, 191, 0.035) 1px, transparent 1px);
+      background-size: 100% 100%, 56px 56px, 56px 56px;
+    }
+
+    /* 3D tilt cards */
+    .tilt {
+      transform-style: preserve-3d;
+      transition: transform 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms ease, border-color 250ms ease;
+      will-change: transform;
+    }
+    .tilt:hover {
+      transform: perspective(900px) rotateX(3deg) rotateY(-3deg) translateY(-4px);
+      box-shadow: 0 18px 50px -20px rgba(34, 211, 238, 0.35);
+    }
+
+    .kpi:hover { border-color: rgba(34,211,238,.45); }
+
+    @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    .float { animation: floaty 5s ease-in-out infinite; }
+
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(34,211,238,.45); }
+      70%  { box-shadow: 0 0 0 12px rgba(34,211,238,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,211,238,0); }
+    }
+    .ring-pulse { animation: pulse-ring 1.6s ease-out infinite; }
+
+    @keyframes sheen {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .sheen {
+      background: linear-gradient(90deg, transparent, rgba(34,211,238,.18), transparent);
+      background-size: 200% 100%;
+      animation: sheen 1.4s linear infinite;
+    }
+
+    @keyframes count-fade { from { opacity: 0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+    .count-fade { animation: count-fade .5s ease both; }
+
+    @keyframes scan {
+      0% { top: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .scanline { animation: scan 1.8s ease-in-out infinite; }
+
+    .dropzone-active {
+      border-color: #22d3ee !important;
+      background: rgba(34,211,238,.06);
+      transform: scale(1.01);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #0a1120; }
+    ::-webkit-scrollbar-thumb { background: #1d2f50; border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a4068; }
+
+    .reduce-anim *, .reduce-anim *::before, .reduce-anim *::after {
+      animation: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ───────────────────────── Lucide-style inline icons ───────────────────────── */
+    const Icon = ({ d, size = 20, stroke = 1.75, className = "", children }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth={stroke} strokeLinecap="round"
+        strokeLinejoin="round" className={className} aria-hidden="true">
+        {children || <path d={d} />}
+      </svg>
+    );
+
+    const IconActivity = (p) => <Icon {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></Icon>;
+    const IconGauge = (p) => <Icon {...p}><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></Icon>;
+    const IconFlag = (p) => <Icon {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></Icon>;
+    const IconTarget = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></Icon>;
+    const IconUpload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></Icon>;
+    const IconCpu = (p) => <Icon {...p}><rect width="16" height="16" x="4" y="4" rx="2" /><rect width="6" height="6" x="9" y="9" rx="1" /><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2" /></Icon>;
+    const IconScan = (p) => <Icon {...p}><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M7 12h10" /></Icon>;
+    const IconCheck = (p) => <Icon {...p}><path d="M21.801 10A10 10 0 1 1 17 3.335" /><path d="m9 11 3 3L22 4" /></Icon>;
+    const IconLayers = (p) => <Icon {...p}><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" /><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" /></Icon>;
+    const IconBolt = (p) => <Icon {...p}><path d="M13 2 3 14h9l-1 8 10-12h-9z" /></Icon>;
+    const IconFlame = (p) => <Icon {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></Icon>;
+    const IconImage = (p) => <Icon {...p}><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></Icon>;
+    const IconClock = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></Icon>;
+    const IconSearch = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>;
+    const IconBell = (p) => <Icon {...p}><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></Icon>;
+    const IconChevron = (p) => <Icon {...p}><path d="m9 18 6-6-6-6" /></Icon>;
+    const IconAlert = (p) => <Icon {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></Icon>;
+    const IconGrid = (p) => <Icon {...p}><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></Icon>;
+    const IconTrend = (p) => <Icon {...p}><path d="M16 7h6v6" /><path d="m22 7-8.5 8.5-5-5L2 17" /></Icon>;
+    const IconX = (p) => <Icon {...p}><path d="M18 6 6 18M6 6l12 12" /></Icon>;
+
+    /* ───────────────────────── Mock data ───────────────────────── */
+    const STAGES = [
+      { key: "upload",     label: "Upload",       Icon: IconUpload, sub: "Ingest image" },
+      { key: "preprocess", label: "Preprocess",   Icon: IconLayers, sub: "Normalize · denoise" },
+      { key: "inference",  label: "ML Inference", Icon: IconCpu,    sub: "Faster R-CNN" },
+      { key: "extract",    label: "Extract",      Icon: IconScan,   sub: "Digit decode" },
+      { key: "verify",     label: "Verify",       Icon: IconCheck,  sub: "7-seg check" },
+    ];
+
+    const SAMPLE_READINGS = [
+      { reading: "51706", type: "electric", img: "meter_reading_debug.png" },
+      { reading: "51444", type: "electric", img: "example_image1.png" },
+      { reading: "90288", type: "electric", img: "example_output.png" },
+      { reading: "800800", type: "gas", img: "gasmeter.png" },
+    ];
+
+    const seedHistory = [
+      { id: "MB-4471-EL", type: "electric", reading: "51706", conf: 98.6, status: "verified", ts: "2026-06-13 09:41" },
+      { id: "MB-2210-GS", type: "gas",      reading: "800800", conf: 88.2, status: "verified", ts: "2026-06-13 09:38" },
+      { id: "MB-8853-EL", type: "electric", reading: "51444", conf: 96.1, status: "verified", ts: "2026-06-13 09:33" },
+      { id: "MB-1029-EL", type: "electric", reading: "47??2", conf: 61.4, status: "flagged",  ts: "2026-06-13 09:27" },
+      { id: "MB-7741-GS", type: "gas",      reading: "100245", conf: 79.5, status: "review",   ts: "2026-06-13 09:19" },
+      { id: "MB-3360-EL", type: "electric", reading: "90288", conf: 99.1, status: "verified", ts: "2026-06-13 09:12" },
+      { id: "MB-5598-EL", type: "electric", reading: "23510", conf: 94.7, status: "verified", ts: "2026-06-13 09:04" },
+    ];
+
+    /* ───────────────────────── Small UI helpers ───────────────────────── */
+    const cx = (...a) => a.filter(Boolean).join(" ");
+
+    function MeterBadge({ type, size = "sm" }) {
+      const isGas = type === "gas";
+      const I = isGas ? IconFlame : IconBolt;
+      return (
+        <span className={cx(
+          "inline-flex items-center gap-1.5 rounded-full border font-medium",
+          size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm",
+          isGas
+            ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+            : "border-cyan/30 bg-cyan/10 text-cyan-soft"
+        )}>
+          <I size={size === "sm" ? 12 : 14} />
+          {isGas ? "Gas" : "Electric"}
+        </span>
+      );
+    }
+
+    function StatusPill({ status }) {
+      const map = {
+        verified: { c: "text-teal-bright border-teal/30 bg-teal/10", dot: "bg-teal-bright", t: "Verified" },
+        flagged:  { c: "text-rose-300 border-rose-400/30 bg-rose-400/10", dot: "bg-rose-400", t: "Flagged" },
+        review:   { c: "text-amber-300 border-amber-400/30 bg-amber-400/10", dot: "bg-amber-300", t: "Review" },
+      };
+      const s = map[status] || map.review;
+      return (
+        <span className={cx("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium", s.c)}>
+          <span className={cx("h-1.5 w-1.5 rounded-full", s.dot)} />
+          {s.t}
+        </span>
+      );
+    }
+
+    function ConfidenceBar({ value }) {
+      const color = value >= 90 ? "bg-teal-bright" : value >= 75 ? "bg-amber-300" : "bg-rose-400";
+      return (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-navy-700">
+            <div className={cx("h-full rounded-full transition-all duration-500", color)} style={{ width: value + "%" }} />
+          </div>
+          <span className="font-mono text-xs text-ink-300 tabular-nums">{value.toFixed(1)}%</span>
+        </div>
+      );
+    }
+
+    /* ───────────────────────── KPI bento card ───────────────────────── */
+    function KpiCard({ label, value, unit, delta, Icon, accent, className }) {
+      return (
+        <div className={cx(
+          "kpi tilt group relative overflow-hidden rounded-2xl border border-navy-700 bg-navy-850/80 p-5 backdrop-blur",
+          className
+        )}>
+          <div className="flex items-start justify-between">
+            <div className={cx("flex h-10 w-10 items-center justify-center rounded-xl", accent)}>
+              <Icon size={20} />
+            </div>
+            {delta && (
+              <span className={cx(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                delta.up ? "bg-teal/10 text-teal-bright" : "bg-rose-400/10 text-rose-300"
+              )}>
+                <IconTrend size={11} className={delta.up ? "" : "rotate-180"} />
+                {delta.v}
+              </span>
+            )}
+          </div>
+          <div className="mt-4 flex items-baseline gap-1">
+            <span className="font-mono text-3xl font-semibold tracking-tight text-ink-100 tabular-nums count-fade">{value}</span>
+            {unit && <span className="font-mono text-sm text-ink-400">{unit}</span>}
+          </div>
+          <p className="mt-1 text-sm text-ink-300">{label}</p>
+        </div>
+      );
+    }
+
+    /* ───────────────────────── Pipeline visualizer ───────────────────────── */
+    function Pipeline({ activeIndex, running }) {
+      return (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:gap-0">
+          {STAGES.map((s, i) => {
+            const done = activeIndex > i;
+            const active = activeIndex === i && running;
+            const S = s.Icon;
+            return (
+              <React.Fragment key={s.key}>
+                <div className="flex min-w-[88px] flex-1 flex-col items-center text-center">
+                  <div className={cx(
+                    "relative flex h-12 w-12 items-center justify-center rounded-xl border transition-all duration-250",
+                    done && "border-teal/50 bg-teal/15 text-teal-bright",
+                    active && "border-cyan bg-cyan/15 text-cyan-soft ring-pulse",
+                    !done && !active && "border-navy-700 bg-navy-800 text-ink-500"
+                  )}>
+                    <S size={20} />
+                  </div>
+                  <span className={cx("mt-2 text-xs font-medium transition-colors duration-250",
+                    (done || active) ? "text-ink-100" : "text-ink-500")}>{s.label}</span>
+                  <span className="mt-0.5 hidden text-[10px] text-ink-500 sm:block">{s.sub}</span>
+                </div>
+                {i < STAGES.length - 1 && (
+                  <div className="relative mx-1 hidden h-0.5 flex-1 self-start overflow-hidden rounded-full bg-navy-700 sm:block" style={{ marginTop: "23px" }}>
+                    <div className={cx("absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-teal to-cyan transition-all duration-500",
+                      done ? "w-full" : "w-0")} />
+                    {active && <div className="absolute inset-0 sheen" />}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      );
+    }
+
+    /* ───────────────────────── Result card ───────────────────────── */
+    function ResultCard({ result, running }) {
+      if (running) {
+        return (
+          <div className="rounded-2xl border border-navy-700 bg-navy-850/80 p-6 backdrop-blur">
+            <div className="flex items-center gap-2 text-cyan-soft">
+              <IconCpu size={16} className="animate-spin" />
+              <span className="text-sm font-medium">Running inference…</span>
+            </div>
+            <div className="mt-5 space-y-3">
+              <div className="h-9 w-2/3 animate-pulse rounded-lg bg-navy-700" />
+              <div className="h-4 w-1/3 animate-pulse rounded bg-navy-700" />
+              <div className="h-28 w-full animate-pulse rounded-xl bg-navy-800" />
+            </div>
+          </div>
+        );
+      }
+      if (!result) {
+        return (
+          <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-navy-700 bg-navy-850/40 p-8 text-center">
+            <div className="float flex h-14 w-14 items-center justify-center rounded-2xl border border-navy-700 bg-navy-800 text-ink-400">
+              <IconScan size={26} />
+            </div>
+            <p className="mt-4 text-sm font-medium text-ink-300">No reading yet</p>
+            <p className="mt-1 text-xs text-ink-500">Upload or run a sample to see extracted results.</p>
+          </div>
+        );
+      }
+      const flagged = result.conf < 75;
+      return (
+        <div className="tilt overflow-hidden rounded-2xl border border-navy-700 bg-navy-850/80 backdrop-blur count-fade">
+          <div className="relative h-40 overflow-hidden border-b border-navy-700 bg-navy-950">
+            <img src={result.img} alt="Processed meter" className="h-full w-full object-cover opacity-90" />
+            <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-transparent to-transparent" />
+            <div className="absolute left-3 top-3"><MeterBadge type={result.type} /></div>
+            <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-teal/30 bg-navy-950/70 px-2.5 py-1 text-xs text-teal-bright backdrop-blur">
+              <IconCheck size={12} /> Processed
+            </div>
+          </div>
+          <div className="p-5">
+            <p className="text-xs uppercase tracking-wider text-ink-500">Extracted reading</p>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <span className="font-mono text-4xl font-bold tracking-tight text-ink-100 tabular-nums">{result.reading}</span>
+              <span className="font-mono text-sm text-ink-400">kWh</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-navy-700 bg-navy-800/60 p-3">
+                <p className="text-[11px] uppercase tracking-wider text-ink-500">Confidence</p>
+                <p className={cx("mt-1 font-mono text-xl font-semibold tabular-nums",
+                  result.conf >= 90 ? "text-teal-bright" : result.conf >= 75 ? "text-amber-300" : "text-rose-300")}>
+                  {result.conf.toFixed(1)}%
+                </p>
+              </div>
+              <div className="rounded-xl border border-navy-700 bg-navy-800/60 p-3">
+                <p className="text-[11px] uppercase tracking-wider text-ink-500">Latency</p>
+                <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-ink-100">{result.latency}<span className="text-sm text-ink-400">ms</span></p>
+              </div>
+            </div>
+            {flagged && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
+                <IconAlert size={15} className="mt-0.5 shrink-0" />
+                <span>Confidence below threshold — flagged for manual verification.</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ───────────────────────── Main App ───────────────────────── */
+    function App() {
+      const [activeIndex, setActiveIndex] = useState(-1);
+      const [running, setRunning] = useState(false);
+      const [result, setResult] = useState(null);
+      const [history, setHistory] = useState(seedHistory);
+      const [dragOver, setDragOver] = useState(false);
+      const [filter, setFilter] = useState("all");
+      const [query, setQuery] = useState("");
+      const fileRef = useRef(null);
+      const timers = useRef([]);
+
+      const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+      useEffect(() => clearTimers, []);
+
+      const runPipeline = useCallback((sample) => {
+        if (running) return;
+        clearTimers();
+        setResult(null);
+        setRunning(true);
+        setActiveIndex(0);
+
+        const pick = sample || SAMPLE_READINGS[Math.floor(Math.random() * SAMPLE_READINGS.length)];
+        const perStage = 2000 / STAGES.length; // ~2s total inference
+
+        STAGES.forEach((_, i) => {
+          timers.current.push(setTimeout(() => setActiveIndex(i + 1), perStage * (i + 1)));
+        });
+
+        timers.current.push(setTimeout(() => {
+          const conf = pick.type === "gas"
+            ? 78 + Math.random() * 14
+            : 92 + Math.random() * 7.5;
+          const latency = Math.round(1700 + Math.random() * 600);
+          const res = { ...pick, conf, latency };
+          setResult(res);
+          setRunning(false);
+
+          const status = conf >= 90 ? "verified" : conf >= 75 ? "review" : "flagged";
+          const idType = pick.type === "gas" ? "GS" : "EL";
+          const id = `MB-${String(Math.floor(1000 + Math.random() * 8999))}-${idType}`;
+          const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
+          setHistory((h) => [{ id, type: pick.type, reading: pick.reading, conf, status, ts }, ...h]);
+        }, 2000 + 150));
+      }, [running]);
+
+      const onDrop = (e) => {
+        e.preventDefault();
+        setDragOver(false);
+        runPipeline();
+      };
+
+      /* Derived KPIs */
+      const total = history.length;
+      const avgConf = history.reduce((a, b) => a + b.conf, 0) / Math.max(total, 1);
+      const flagged = history.filter((h) => h.status === "flagged").length;
+      const verified = history.filter((h) => h.status === "verified").length;
+      const accuracy = (verified / Math.max(total, 1)) * 100;
+
+      const filtered = history.filter((h) => {
+        const matchType = filter === "all" || h.type === filter || h.status === filter;
+        const q = query.trim().toLowerCase();
+        const matchQ = !q || h.id.toLowerCase().includes(q) || h.reading.toLowerCase().includes(q);
+        return matchType && matchQ;
+      });
+
+      const filterTabs = [
+        { k: "all", label: "All" },
+        { k: "electric", label: "Electric" },
+        { k: "gas", label: "Gas" },
+        { k: "flagged", label: "Flagged" },
+      ];
+
+      return (
+        <div className="app-bg min-h-screen text-ink-100">
+          {/* ── Top bar ── */}
+          <header className="sticky top-0 z-30 border-b border-navy-700/70 bg-navy-950/80 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal to-cyan text-navy-950 shadow-lg shadow-cyan/20">
+                  <IconActivity size={20} stroke={2.25} />
+                </div>
+                <div>
+                  <h1 className="text-[15px] font-bold leading-tight tracking-tight">MeterVision</h1>
+                  <p className="hidden text-[11px] text-ink-400 sm:block">Real-time meter reading control center</p>
+                </div>
+                <span className="ml-2 hidden items-center gap-1.5 rounded-full border border-teal/30 bg-teal/10 px-2.5 py-0.5 text-[11px] font-medium text-teal-bright md:inline-flex">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-bright" /> Live
+                </span>
+              </div>
+
+              <div className="hidden flex-1 items-center md:flex md:max-w-xs">
+                <div className="relative w-full">
+                  <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search meter ID or reading…"
+                    aria-label="Search readings"
+                    className="w-full rounded-xl border border-navy-700 bg-navy-850 py-2 pl-9 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors duration-250 focus:border-cyan/60"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button aria-label="Notifications" className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-navy-700 bg-navy-850 text-ink-300 transition-colors duration-250 hover:border-cyan/40 hover:text-ink-100">
+                  <IconBell size={18} />
+                  <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-cyan" />
+                </button>
+                <div className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-navy-700 font-mono text-xs font-semibold text-cyan-soft">MH</div>
+              </div>
+            </div>
+          </header>
+
+          <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6">
+            {/* ── KPI bento grid ── */}
+            <section aria-label="Key metrics" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <KpiCard label="Total Readings" value={total.toLocaleString()} Icon={IconLayers}
+                accent="bg-cyan/15 text-cyan-soft" delta={{ up: true, v: "12%" }} />
+              <KpiCard label="Avg Confidence" value={avgConf.toFixed(1)} unit="%" Icon={IconGauge}
+                accent="bg-teal/15 text-teal-bright" delta={{ up: true, v: "1.4%" }} />
+              <KpiCard label="Flagged" value={flagged} Icon={IconFlag}
+                accent="bg-amber-400/15 text-amber-300" delta={{ up: false, v: "3%" }} />
+              <KpiCard label="Accuracy Rate" value={accuracy.toFixed(1)} unit="%" Icon={IconTarget}
+                accent="bg-teal/15 text-teal-bright" delta={{ up: true, v: "0.8%" }} />
+            </section>
+
+            {/* ── Pipeline + Upload + Result ── */}
+            <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {/* Left: dropzone + pipeline (spans 2) */}
+              <div className="flex flex-col gap-4 lg:col-span-2">
+                <div className="rounded-2xl border border-navy-700 bg-navy-850/80 p-5 backdrop-blur">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-semibold text-ink-100">Inference Pipeline</h2>
+                      <p className="text-xs text-ink-400">Upload → Preprocess → ML Inference → Extract → Verify</p>
+                    </div>
+                    <span className={cx("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors duration-250",
+                      running ? "border-cyan/40 bg-cyan/10 text-cyan-soft" : "border-navy-700 bg-navy-800 text-ink-400")}>
+                      <span className={cx("h-1.5 w-1.5 rounded-full", running ? "bg-cyan animate-pulse" : "bg-ink-500")} />
+                      {running ? "Processing" : "Idle"}
+                    </span>
+                  </div>
+
+                  <Pipeline activeIndex={activeIndex} running={running} />
+                </div>
+
+                {/* Dropzone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={onDrop}
+                  onClick={() => !running && fileRef.current && fileRef.current.click()}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Upload meter photo"
+                  onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !running) runPipeline(); }}
+                  className={cx(
+                    "group relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-navy-600 bg-navy-850/50 px-6 py-10 text-center transition-all duration-250 hover:border-cyan/50 hover:bg-navy-800/50",
+                    dragOver && "dropzone-active",
+                    running && "pointer-events-none opacity-60"
+                  )}
+                >
+                  {dragOver && <div className="scanline pointer-events-none absolute inset-x-0 h-px bg-cyan/70 shadow-[0_0_12px_2px] shadow-cyan/50" />}
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={() => runPipeline()} />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-navy-600 bg-navy-800 text-cyan-soft transition-transform duration-250 group-hover:scale-110">
+                    <IconUpload size={26} />
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-ink-100">Drop a meter photo, or <span className="text-cyan-soft underline-offset-2 group-hover:underline">browse</span></p>
+                  <p className="mt-1 text-xs text-ink-500">Gas &amp; electric · JPG / PNG · up to 12 MB</p>
+
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); runPipeline(SAMPLE_READINGS[0]); }}
+                      disabled={running}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-gradient-to-r from-teal to-cyan px-4 py-2 text-sm font-semibold text-navy-950 shadow-lg shadow-cyan/20 transition-all duration-250 hover:shadow-cyan/40 disabled:opacity-50">
+                      <IconBolt size={15} /> Run electric sample
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); runPipeline(SAMPLE_READINGS[3]); }}
+                      disabled={running}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-navy-600 bg-navy-800 px-4 py-2 text-sm font-medium text-ink-200 transition-colors duration-250 hover:border-cyan/40 hover:text-ink-100 disabled:opacity-50">
+                      <IconFlame size={15} /> Run gas sample
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: result card */}
+              <div className="lg:col-span-1">
+                <ResultCard result={result} running={running} />
+              </div>
+            </section>
+
+            {/* ── History table ── */}
+            <section className="mt-6 overflow-hidden rounded-2xl border border-navy-700 bg-navy-850/80 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-navy-700 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <IconClock size={16} className="text-ink-400" />
+                  <h2 className="text-sm font-semibold text-ink-100">Reading History</h2>
+                  <span className="rounded-full bg-navy-700 px-2 py-0.5 font-mono text-[11px] text-ink-300">{filtered.length}</span>
+                </div>
+                <div className="flex items-center gap-1 rounded-xl border border-navy-700 bg-navy-900 p-1">
+                  {filterTabs.map((t) => (
+                    <button key={t.k} onClick={() => setFilter(t.k)}
+                      className={cx("cursor-pointer rounded-lg px-3 py-1 text-xs font-medium transition-colors duration-250",
+                        filter === t.k ? "bg-navy-700 text-ink-100" : "text-ink-400 hover:text-ink-200")}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[680px] text-left">
+                  <thead>
+                    <tr className="border-b border-navy-700 text-[11px] uppercase tracking-wider text-ink-500">
+                      <th className="px-5 py-3 font-medium">Meter ID</th>
+                      <th className="px-5 py-3 font-medium">Type</th>
+                      <th className="px-5 py-3 font-medium">Reading</th>
+                      <th className="px-5 py-3 font-medium">Confidence</th>
+                      <th className="px-5 py-3 font-medium">Timestamp</th>
+                      <th className="px-5 py-3 font-medium">Status</th>
+                      <th className="px-5 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((h, i) => (
+                      <tr key={h.id + i} className="group border-b border-navy-800 transition-colors duration-150 last:border-0 hover:bg-navy-800/60">
+                        <td className="px-5 py-3 font-mono text-sm text-ink-200">{h.id}</td>
+                        <td className="px-5 py-3"><MeterBadge type={h.type} /></td>
+                        <td className="px-5 py-3 font-mono text-sm font-semibold text-ink-100 tabular-nums">{h.reading}</td>
+                        <td className="px-5 py-3"><ConfidenceBar value={h.conf} /></td>
+                        <td className="px-5 py-3 font-mono text-xs text-ink-400 tabular-nums">{h.ts}</td>
+                        <td className="px-5 py-3"><StatusPill status={h.status} /></td>
+                        <td className="px-5 py-3 text-right">
+                          <button aria-label={"View " + h.id} className="cursor-pointer text-ink-500 opacity-0 transition-all duration-150 hover:text-cyan-soft group-hover:opacity-100">
+                            <IconChevron size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-ink-500">No readings match your filters.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 pb-6 text-xs text-ink-500">
+              <span>MeterVision · AI meter reading pipeline for Canadian utilities</span>
+              <span className="font-mono">Faster R-CNN · SmallDigitCNN · PyTorch</span>
+            </footer>
+          </main>
+        </div>
+      );
+    }
+
+    /* Respect reduced motion */
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.body.classList.add("reduce-anim");
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
